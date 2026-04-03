@@ -8,3 +8,5 @@
 | 2026-04-03 | Phase 1 | planner | claude-sonnet-4-6 | 31 016 | 14 | 136 | OK |
 | 2026-04-03 | Phase 1 | developer | claude-sonnet-4-6 | 40 124 | 37 | 399 | OK |
 | 2026-04-03 | Phase 1 | tester | claude-sonnet-4-6 | 59 356 | 22 | 218 | OK |
+| 2026-04-03 | Phase 2 | developer | claude-sonnet-4-6 | 26 809 | 21 | 105 | OK |
+| 2026-04-03 | Phase 2 | tester | claude-sonnet-4-6 | 38 400 | 14 | 104 | OK |

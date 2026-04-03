@@ -6,14 +6,18 @@ Original author: Alireza Bagheri
 GitHub: https://github.com/alireza787b/Python-Gaze-Face-Tracker
 """
 
-import cv2 as cv
-import numpy as np
+import csv
+import logging
+import os
 import socket
 import argparse
 import time
-import csv
-import os
 from datetime import datetime
+
+import cv2 as cv
+import numpy as np
+
+logger = logging.getLogger(__name__)
 
 from src.utils.config import load_config
 from src.calibration.calibration import CalibrationSession
@@ -27,6 +31,7 @@ from src.tracking.iris_tracker import (
 )
 from src.tracking.blink_detector import BlinkDetector
 from src.tracking.head_pose import HeadPoseEstimator
+from src.control.cursor import CursorController
 
 
 def main():
@@ -53,6 +58,7 @@ def main():
     tracker = FaceMeshTracker(config)
     blink_detector = BlinkDetector(config)
     head_pose = HeadPoseEstimator(config)
+    cursor_controller = CursorController(config)
 
     cap = cv.VideoCapture(int(args.camSource))
     iris_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -137,6 +143,16 @@ def main():
                 if ENABLE_HEAD_POSE:
                     pitch, yaw, roll = head_pose.estimate(mesh_points, (img_h, img_w))
 
+                # Cursor control
+                if gaze_mapper.is_calibrated():
+                    iris_dx = (iris["l_dx"] + iris["r_dx"]) / 2.0
+                    iris_dy = (iris["l_dy"] + iris["r_dy"]) / 2.0
+                    try:
+                        pred_x, pred_y = gaze_mapper.predict(iris_dx, iris_dy, pitch, yaw)
+                        cursor_controller.move(pred_x, pred_y)
+                    except Exception as e:
+                        logger.error("Gaze prediction failed: %s", e)
+
                 if PRINT_DATA:
                     print(f"Total Blinks: {blink_detector.total_blinks}")
                     print(f"Left Eye Center X: {l_cx} Y: {l_cy}")
@@ -210,6 +226,11 @@ def main():
                 gaze_mapper.fit(samples)
                 gaze_mapper.save(calib_path, samples)
                 print("Recalibration complete.")
+
+            if key == ord('p'):
+                cursor_controller.set_enabled(not cursor_controller.is_enabled())
+                state = "enabled" if cursor_controller.is_enabled() else "paused"
+                print(f"Cursor control {state}.")
 
             if key == ord('q'):
                 if PRINT_DATA:
