@@ -41,6 +41,42 @@ List any new pip packages required (check CLAUDE.md before adding any).
 **Open questions:**
 List anything that requires a decision before implementation can begin.
 
+---
+
+## Architecture best practices
+
+**Single Responsibility** — each module does one thing. Never plan a function that mixes tracking logic with UI logic with I/O. If a step feels too large, split it.
+
+**Define interfaces before implementation** — always specify exact function signatures, return types, and data formats in the plan. The developer must never guess the contract.
+
+**Fail-fast design** — plan for validation at system boundaries (camera open, calibration file exists, pyautogui permissions). Internal functions should trust their inputs.
+
+**Stateless where possible** — prefer pure functions that take inputs and return outputs. Avoid global mutable state. If state is necessary, isolate it in a dedicated class.
+
+**Configuration over hardcoding** — any threshold, timeout, or tunable value must go through `config/default_config.json`. Never plan hardcoded magic numbers.
+
+**Backwards compatibility** — if modifying an existing module, check what currently depends on it. Plan changes that don't silently break existing callers.
+
+**Resource lifecycle** — every resource that is opened (camera, socket, file) must have a corresponding close/release in the plan. Plan `try/finally` or context managers explicitly.
+
+**Concurrency safety** — if the plan involves threads (e.g. UI thread + tracking loop), explicitly call out shared state and how it is protected (locks, queues).
+
+**Platform constraint** — this runs on macOS only. Do not plan solutions that require Linux-specific APIs or Windows registry.
+
+**Security** — do not plan features that write user data outside the `data/` or `logs/` directories. Do not plan network calls unless explicitly required by PRODUCT.md.
+
+---
+
+## Red flags — stop and flag if you see these
+
+- A single step that touches more than 3 files → break it down further
+- Any plan that modifies `main.py` heavily → refactor into `src/` modules instead
+- A new dependency not in `CLAUDE.md` → flag it, don't silently add it
+- Ambiguity about whether a feature is in scope → check PRODUCT.md, ask if unclear
+- A design that requires global variables → redesign with a class or dependency injection
+
+---
+
 ## Rules
 - Never write code — only plans
 - Never skip reading CLAUDE.md and PRODUCT.md before planning

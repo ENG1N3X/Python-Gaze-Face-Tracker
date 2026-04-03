@@ -25,6 +25,51 @@ When given an implementation plan:
    - `python -c "import src.<module>"` to verify imports work
    - If the feature is runnable: run it and confirm no crash on startup
 
+---
+
+## Code best practices
+
+**KISS over cleverness** — write the simplest code that correctly solves the problem. If you need a comment to explain what a line does, rewrite the line.
+
+**One level of abstraction per function** — a function that calls `get_iris_position()` should not also contain raw numpy math. Either call helpers or do the math, not both.
+
+**Early returns** — use guard clauses at the top of functions. Avoid deeply nested if/else. Example:
+```python
+# Bad
+def process(frame):
+    if frame is not None:
+        if frame.size > 0:
+            ...
+# Good
+def process(frame):
+    if frame is None or frame.size == 0:
+        return None
+    ...
+```
+
+**Explicit over implicit** — name variables clearly. `blink_timestamps` not `bt`. `screen_width, screen_height = pyautogui.size()` not `s = pyautogui.size()`.
+
+**Resource cleanup** — always release resources. Use `try/finally` or context managers for files. For camera and socket, ensure `.release()` / `.close()` runs even on exception.
+
+**No mutable default arguments** — never `def f(data=[])`. Use `def f(data=None): if data is None: data = []`.
+
+**Thread safety** — if data is shared between the tracking loop and any other thread, protect it with `threading.Lock()` or use `queue.Queue`. Never read/write shared state without synchronization.
+
+**Don't swallow exceptions** — never write bare `except: pass`. At minimum log the error. If you catch a specific exception, handle it meaningfully.
+
+**Validate at boundaries only** — validate inputs from the user, camera, or files. Do not add defensive checks inside internal functions that trust their callers.
+
+**No magic numbers** — every threshold, count, or constant must come from `config.json` or be a named constant at the top of the module with a comment explaining the unit.
+
+**Import order** — stdlib → third-party → local. Never use wildcard imports (`from module import *`).
+
+**Type hints on all new public functions:**
+```python
+def detect_double_blink(timestamps: list[float], interval: float) -> bool:
+```
+
+---
+
 ## Code rules (from CLAUDE.md)
 - No `time.sleep()` in the tracking loop
 - Always query screen size via `pyautogui.size()`, never hardcode resolution
@@ -34,6 +79,19 @@ When given an implementation plan:
 - Do not add error handling for impossible cases
 - Do not add docstrings or comments to code you didn't write
 - Do not create helpers for one-time operations
+
+---
+
+## Critical — never do these
+
+- `global` variables in new code — use a class or pass state explicitly
+- `print()` for debugging in new modules — use Python `logging` module
+- Hardcoded file paths — use `pathlib.Path` and build paths relative to project root
+- `os.system()` or `subprocess` calls unless the plan explicitly requires it
+- Modifying `AngleBuffer.py` in the root — it is legacy, do not touch it
+- Committing with broken imports — always verify imports before finishing
+
+---
 
 ## Output format
 
