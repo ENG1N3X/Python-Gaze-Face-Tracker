@@ -16,6 +16,7 @@ class CalibrationSession:
         self._dwell_sec = config['calibration_dwell_sec']
         self._n_points = config['calibration_points']
         self._collect_frames = config['calibration_collect_frames']
+        self._ui = None  # created lazily on first run() call
 
     def run(
         self,
@@ -28,7 +29,12 @@ class CalibrationSession:
         y_positions = [screen_h * r for r in [0.1, 0.5, 0.9]]
         grid_points = [(x, y) for y in y_positions for x in x_positions]
 
-        ui = CalibrationUI()
+        if self._ui is None:
+            self._ui = CalibrationUI()  # first run — create Tk instance
+        else:
+            self._ui.show()  # subsequent runs — reuse existing Tk instance
+
+        ui = self._ui
         samples = []
 
         try:

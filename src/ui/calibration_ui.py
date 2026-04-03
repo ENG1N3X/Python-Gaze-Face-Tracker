@@ -65,5 +65,14 @@ class CalibrationUI:
             )
         self._root.update()
 
+    def show(self) -> None:
+        """Make the window visible (for reuse on recalibration)."""
+        self._canvas.delete('all')
+        self._root.deiconify()
+        self._root.attributes('-topmost', True)
+        self._root.update()
+
     def close(self) -> None:
-        self._root.destroy()
+        """Hide the window — keep Tk alive for potential reuse."""
+        self._root.withdraw()
+        self._root.update()

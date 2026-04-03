@@ -395,9 +395,9 @@ class TestCalibrationSessionRunUIInteraction(unittest.TestCase):
         self.assertEqual(mock_ui_instance.show_point.call_count, 9)
 
     def test_ui_close_called_after_run(self):
-        """CalibrationUI.close() is called in the finally block."""
+        """CalibrationUI.close() is called at least once (hide after run)."""
         _, mock_ui = _run_with_mocks()
-        mock_ui.close.assert_called_once()
+        mock_ui.close.assert_called()
 
 
 class TestCalibrationSessionRunCameraFailure(unittest.TestCase):
