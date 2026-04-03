@@ -10,6 +10,10 @@ import csv
 import logging
 import os
 import socket
+import warnings
+
+# Suppress deprecation warning from mediapipe internals (protobuf SymbolDatabase)
+warnings.filterwarnings("ignore", message="SymbolDatabase.GetPrototype", category=UserWarning)
 import argparse
 import time
 from datetime import datetime
