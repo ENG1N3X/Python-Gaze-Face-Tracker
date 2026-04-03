@@ -35,7 +35,7 @@ class CalibrationSession:
             for i, (pt_x, pt_y) in enumerate(grid_points):
                 ui.show_point(i, self._n_points, int(pt_x), int(pt_y))
 
-                # Discard frames (dwell/settle period — no countdown yet)
+                # Discard frames (dwell/settle period — keep UI responsive)
                 frames_discarded = 0
                 while frames_discarded < self._collect_frames:
                     ret, frame = cap.read()
@@ -43,7 +43,9 @@ class CalibrationSession:
                         raise RuntimeError("Camera read failed during calibration")
                     result = tracker.process(frame)
                     if result is None:
+                        ui.tick()
                         continue
+                    ui.tick()
                     frames_discarded += 1
 
                 # Collect frames (countdown shown here)
@@ -55,6 +57,7 @@ class CalibrationSession:
                         raise RuntimeError("Camera read failed during calibration")
                     result = tracker.process(frame)
                     if result is None:
+                        ui.tick()
                         continue
                     ui.update_countdown(frames_collected / self._collect_frames)
                     mesh_points, mesh_points_3d = result
