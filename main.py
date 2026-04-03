@@ -178,7 +178,8 @@ def main():
                 packet = (np.array([timestamp], dtype=np.int64).tobytes() +
                           np.array([l_cx, l_cy, l_dx, l_dy], dtype=np.int32).tobytes())
                 iris_socket.sendto(packet, SERVER_ADDRESS)
-                print(f'Sent UDP packet to {SERVER_ADDRESS}: {packet}')
+                if PRINT_DATA:
+                    print(f'Sent UDP packet to {SERVER_ADDRESS}: {packet}')
 
                 # On-screen data
                 if SHOW_ON_SCREEN_DATA:
