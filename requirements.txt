@@ -2,3 +2,5 @@ opencv-python
 mediapipe==0.10.13
 numpy
 scipy
+pyautogui
+scikit-learn
