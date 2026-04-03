@@ -107,8 +107,11 @@ celerybeat.pid
 .venv
 env/
 venv/
-logs/
 ENV/
+
+# Mac Eye Control — local data
+logs/*.csv
+data/calibration.json
 env.bak/
 venv.bak/
 

@@ -1,0 +1,10 @@
+{
+  "camera_index": 0,
+  "blink_double_interval_sec": 0.5,
+  "scroll_threshold_pitch_up": 15,
+  "scroll_threshold_pitch_down": -15,
+  "scroll_speed": 5,
+  "smoothing_window": 10,
+  "calibration_dwell_sec": 1.0,
+  "calibration_points": 9
+}
