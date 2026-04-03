@@ -13,30 +13,82 @@ When given a plan and a developer's implementation:
 1. **Read project context first** — always start by reading:
    - `CLAUDE.md` — architecture, constraints, rules
    - `PRODUCT.md` — expected behavior from the user's perspective
+   - The analyst doc in `docs/features/` if referenced — acceptance criteria there are your test targets
    - Every file the developer created or modified
 
-2. **Write tests** in `tests/` that verify:
-   - The happy path works as specified in the plan
-   - Edge cases and boundary conditions (e.g. blink threshold edge values, pitch at exactly the scroll threshold)
-   - Failure modes are handled gracefully (e.g. no face detected, calibration file missing or corrupt)
+2. **Check test environment** before writing anything:
+   ```bash
+   python -m pytest --version  # confirm pytest is available
+   python -m pytest tests/ -v  # run existing tests first to establish baseline
+   ```
+   If existing tests fail before you write a single line, report it immediately — do not proceed.
 
-3. **Run the tests** and report results:
+3. **Write tests** in `tests/` that verify:
+   - Every acceptance criterion from the analyst doc (if exists)
+   - The happy path works as specified in the plan
+   - Edge cases and boundary conditions
+   - Failure modes (no face detected, calibration file missing or corrupt, camera returns None)
+
+4. **Run all tests** (existing + new) and report results:
    ```bash
    python -m pytest tests/ -v
    ```
 
-4. **Report findings** clearly:
-   - Which tests pass
-   - Which tests fail and why
-   - Any bugs found in the implementation (reference file + line number)
-   - Any behavior that contradicts PRODUCT.md
+5. **Report findings** clearly per the output format below.
+
+---
+
+## conftest.py — shared fixtures
+
+Always check if `tests/conftest.py` exists. If not, create it with the fixtures that all test files will need. Common fixtures for this project:
+
+```python
+# tests/conftest.py
+import pytest
+import numpy as np
+from unittest.mock import MagicMock, patch
+
+@pytest.fixture
+def mock_camera():
+    with patch("cv2.VideoCapture") as mock_cap:
+        instance = mock_cap.return_value
+        instance.isOpened.return_value = True
+        instance.read.return_value = (True, np.zeros((480, 640, 3), dtype=np.uint8))
+        yield instance
+
+@pytest.fixture
+def mock_pyautogui():
+    with patch("pyautogui.moveTo") as move, \
+         patch("pyautogui.click") as click, \
+         patch("pyautogui.scroll") as scroll, \
+         patch("pyautogui.size", return_value=(1440, 900)):
+        yield {"moveTo": move, "click": click, "scroll": scroll}
+
+@pytest.fixture
+def mock_mediapipe_landmarks():
+    landmark = MagicMock()
+    landmark.x = 0.5
+    landmark.y = 0.5
+    landmark.z = 0.0
+    return [landmark] * 478  # FaceMesh with iris: 468 + 10 iris points
+
+@pytest.fixture
+def tmp_calibration(tmp_path):
+    import json
+    cal = {"points": [[0.5, 0.5, 0.0, 0.0, 960, 540]], "model": "linear"}
+    path = tmp_path / "calibration.json"
+    path.write_text(json.dumps(cal))
+    return path
+```
+
+Add fixtures to `conftest.py` — never duplicate them across test files.
 
 ---
 
 ## Testing best practices
 
-**AAA pattern** — every test follows Arrange / Act / Assert. No exceptions:
-```
+**AAA pattern** — every test follows Arrange / Act / Assert:
+```python
 def test_double_blink_triggers_click():
     # Arrange
     timestamps = [0.0, 0.3]
@@ -47,80 +99,102 @@ def test_double_blink_triggers_click():
     assert result is True
 ```
 
-**One assertion per test** — if a test fails, the name alone should tell you exactly what broke. Split multi-assertion tests.
+**One assertion per test** — if a test fails, the name alone tells you what broke. Split multi-assertion tests.
 
-**Test the contract, not the implementation** — test what a function returns or what side effects it produces, not how it does it internally. If the implementation changes but behavior is correct, tests must still pass.
+**Test the contract, not the implementation** — if implementation changes but behavior is correct, tests must still pass.
 
-**Deterministic tests** — no `time.sleep()`, no random data without a fixed seed, no dependency on system clock without mocking. Flaky tests are worse than no tests.
-
-**Isolate external dependencies** — mock everything that is not the unit under test:
-- `cv2.VideoCapture` — mock, do not require a real camera
-- `pyautogui.moveTo`, `pyautogui.click`, `pyautogui.scroll` — mock, do not move the actual mouse
-- `json.load` / file I/O — use `tmp_path` pytest fixture or mock
-- `time.time()` — mock when testing time-dependent logic (blink intervals, dwell timers)
-
-**Boundary value analysis** — always test at the boundary, not just in the middle:
-- `blink_interval = 0.5` → test at exactly `0.5`, at `0.49`, at `0.51`
-- `scroll_threshold = 15°` → test at `15`, `14.9`, `15.1`
-
-**Test failure paths explicitly** — a missing calibration file, a corrupt JSON, a camera that returns `None` frames. These are the cases that crash production.
-
-**Parametrize repeated logic** — use `@pytest.mark.parametrize` instead of copy-pasting similar tests:
+**Deterministic tests** — mock `time.monotonic()` and `time.time()` when testing time-dependent logic. Never use `time.sleep()` in tests:
 ```python
-@pytest.mark.parametrize("pitch,expected", [
-    (16, "scroll_up"),
-    (-16, "scroll_down"),
-    (0, "none"),
-    (14.9, "none"),
-])
-def test_scroll_direction(pitch, expected):
+@patch("time.monotonic", side_effect=[0.0, 0.3, 0.31])
+def test_double_blink_within_interval(mock_time):
     ...
 ```
 
-**Fixture over setup/teardown** — use `@pytest.fixture` for shared setup. Never use `setUp`/`tearDown` (unittest style).
+**Isolate external dependencies** — mock everything that is not the unit under test:
+- `cv2.VideoCapture` — use `mock_camera` fixture
+- `pyautogui.*` — use `mock_pyautogui` fixture
+- `json.load` / file I/O — use `tmp_path` pytest fixture
+- `time.monotonic()` — patch when testing blink interval logic
 
-**Never test `main.py` directly** — test the individual modules in `src/`. `main.py` is an orchestrator and is tested through integration.
+**Boundary value analysis** — test at the boundary, not just the middle:
+- `blink_interval = 0.5` → test at exactly `0.5`, `0.49`, `0.51`
+- `scroll_threshold = 15°` → test at `15.0`, `14.9`, `15.1`
+- `pitch = 0` → no scroll must trigger
+
+**Test failure paths explicitly**:
+- Calibration file missing → graceful error, not crash
+- Calibration file is invalid JSON → graceful error
+- Camera `read()` returns `(False, None)` → loop continues, no exception
+- MediaPipe detects no face → no crash, no mouse movement
+
+**Parametrize repeated logic**:
+```python
+@pytest.mark.parametrize("pitch,expected_action", [
+    (16.0, "scroll_up"),
+    (-16.0, "scroll_down"),
+    (0.0, "none"),
+    (14.9, "none"),
+    (15.0, "none"),   # boundary: exactly at threshold = no scroll
+    (15.1, "scroll_up"),  # boundary: just over threshold
+])
+def test_scroll_direction(pitch, expected_action):
+    ...
+```
+
+**Fixture over setup/teardown** — use `@pytest.fixture`, never `setUp`/`tearDown`.
+
+**Regression first** — always run the full test suite before and after your additions. Report any test that was passing before and fails after your changes.
+
+**Never test `main.py` directly** — test individual `src/` modules.
 
 ---
 
 ## What to look for when reviewing the implementation
 
-Before writing tests, scan the developer's code for these common bugs:
+Before writing tests, scan the developer's code for these bugs:
 
-- **Off-by-one in time comparisons**: `timestamps[-1] - timestamps[0] < interval` vs `<=`
-- **Uninitialized state**: class attributes that are `None` until first frame, used before check
-- **Resource leak**: camera or socket opened but not closed on exception
+- **Retina scaling missing**: cursor control that maps camera px → screen coords without applying `display_scale` factor. Check `src/control/cursor.py` specifically.
+- **Raw MediaPipe coords used as pixels**: `landmark.x` used directly without multiplying by frame width/height
+- **Off-by-one in time comparisons**: `t[-1] - t[0] < interval` vs `<=`
+- **`time.time()` instead of `time.monotonic()`**: for elapsed time, monotonic is correct
+- **Uninitialized state**: class attributes that are `None` until first frame, used before guard check
+- **Resource leak**: camera or socket not closed on exception path
 - **Thread race condition**: shared variable read/written from two threads without a lock
-- **Silent failure on import error**: `try: import pyautogui except: pass` — this hides broken installs
-- **Wrong coordinate system**: mixing camera pixel coords with screen coords before calibration mapping
-- **Calibration not applied**: cursor control running before calibration is loaded/completed
+- **Silent import failure**: `try: import pyautogui except: pass` hides broken installs
+- **Wrong coordinate system**: camera pixel coords mixed with screen logical coords
 
-If you find any of these, include them in `[BUGS FOUND]` with file + line number.
+Include every finding in `[BUGS FOUND]` with file + line number.
 
 ---
 
 ## Testing rules
 - Use `pytest`
-- Mock the webcam (`cv2.VideoCapture`) and `pyautogui` calls — do not require hardware to run tests
-- Do not test implementation internals — test observable behavior and outputs
-- Keep tests simple: one assertion per test where possible
+- Mock camera, pyautogui, and MediaPipe — do not require hardware
+- Keep tests simple: one assertion per test
 - Test file naming: `tests/test_<module_name>.py`
+- Shared fixtures go in `tests/conftest.py`
 
 ---
 
 ## Output format
 
 ```
-[TEST FILE] tests/test_<name>.py
-- List of test cases covered
+[BASELINE] Existing tests before changes:
+PASSED: X / FAILED: Y
 
-[RESULTS]
+[TEST FILE] tests/test_<name>.py
+- List of test cases covered (map each to an acceptance criterion if analyst doc exists)
+
+[RESULTS] All tests after additions:
 PASSED: X
 FAILED: Y
-  - test_name: reason for failure → file.py:line
+  - test_name: reason → file.py:line
+
+[REGRESSIONS]
+- Tests that were passing before and fail now → cause
 
 [BUGS FOUND]
 - Description → file.py:line
 ```
 
-If no bugs are found, say so explicitly. If tests all pass, confirm the feature is ready.
+If no bugs found, say so explicitly. If all tests pass with no regressions, confirm the feature is ready.
