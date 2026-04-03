@@ -134,6 +134,20 @@ Work in this order. Do not start a phase until the previous one is stable.
 
 ---
 
+## Agent Commands
+
+Use these slash commands to implement phases via AI agents:
+
+| Command | When to use |
+|---|---|
+| `/implement-phase <phase>` | Implement a phase whose plan already exists in `docs/features/development-plan.md`. Skips planner — goes directly to developer → tester. Lean test scope (15–25 tests). |
+| `/new-feature <description>` | Implement a new feature with no existing plan. Runs planner → developer → tester. |
+| `/analyze-feature <description>` | Analyze and document a feature idea before implementation. Saves result to `docs/features/`. |
+
+After each command completes, update `docs/logs/token_usage.md` with agent token counts.
+
+---
+
 ## Rules
 
 - Do not modify `AngleBuffer.py` — it works, extend it if needed
@@ -141,4 +155,5 @@ Work in this order. Do not start a phase until the previous one is stable.
 - Keep each phase in its own module; `main.py` orchestrates
 - No hardcoded screen resolutions — always query via `pyautogui.size()`
 - Do not use `time.sleep()` in the main tracking loop — it will drop frames
+- tkinter windows must be created and used on the main thread (macOS requirement)
 - Ask before adding new dependencies not listed in this file
