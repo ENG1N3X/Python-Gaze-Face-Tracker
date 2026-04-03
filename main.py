@@ -16,6 +16,8 @@ import os
 from datetime import datetime
 
 from src.utils.config import load_config
+from src.calibration.calibration import CalibrationSession
+from src.calibration.mapping import GazeMapper
 from src.tracking.face_mesh import FaceMeshTracker
 from src.tracking.iris_tracker import (
     get_iris_positions,
@@ -54,6 +56,20 @@ def main():
 
     cap = cv.VideoCapture(int(args.camSource))
     iris_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    # Calibration bootstrap
+    calibration_session = CalibrationSession(config)
+    gaze_mapper = GazeMapper()
+    calib_path = config["calibration_path"]
+
+    if not gaze_mapper.load(calib_path):
+        print("No calibration found. Running calibration...")
+        samples = calibration_session.run(cap, tracker, head_pose)
+        gaze_mapper.fit(samples)
+        gaze_mapper.save(calib_path, samples)
+        print("Calibration complete.")
+    else:
+        print(f"Calibration loaded from {calib_path}")
 
     os.makedirs(LOG_FOLDER, exist_ok=True)
     csv_data = []
@@ -183,9 +199,16 @@ def main():
                 if PRINT_DATA:
                     print("Head pose recalibrated.")
 
-            if key == ord('r'):
+            if key == ord('s'):
                 IS_RECORDING = not IS_RECORDING
                 print("Recording started." if IS_RECORDING else "Recording paused.")
+
+            if key == ord('r'):
+                print("Starting recalibration...")
+                samples = calibration_session.run(cap, tracker, head_pose)
+                gaze_mapper.fit(samples)
+                gaze_mapper.save(calib_path, samples)
+                print("Recalibration complete.")
 
             if key == ord('q'):
                 if PRINT_DATA:

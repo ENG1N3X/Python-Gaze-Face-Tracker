@@ -111,6 +111,7 @@ ENV/
 
 # Mac Eye Control — local data
 logs/*.csv
+data/
 data/calibration.json
 env.bak/
 venv.bak/

@@ -21,5 +21,7 @@
   "log_folder": "logs",
   "server_ip": "127.0.0.1",
   "server_port": 7070,
-  "head_pose_display_threshold": 10
+  "head_pose_display_threshold": 10,
+  "calibration_path": "data/calibration.json",
+  "calibration_collect_frames": 30
 }
