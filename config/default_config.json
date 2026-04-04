@@ -28,6 +28,7 @@
   "manual_mouse_threshold_px": 15,
   "smoothing_alpha": 0.08,
   "cursor_deadzone_px": 8,
-  "fixation_std_threshold": 2.0,
-  "fixation_window_frames": 12
+  "fixation_window_frames": 20,
+  "fixation_movement_threshold": 2.5,
+  "calibration_gaze_shift_px": 3
 }

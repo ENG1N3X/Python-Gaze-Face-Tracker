@@ -8,6 +8,7 @@ import pyautogui
 from src.tracking.face_mesh import FaceMeshTracker
 from src.tracking.iris_tracker import get_iris_positions
 from src.tracking.head_pose import HeadPoseEstimator
+from src.tracking.blink_detector import BlinkDetector
 from src.tracking.fixation_detector import GazeFixationDetector
 from src.ui.calibration_ui import CalibrationUI
 
@@ -27,6 +28,7 @@ class CalibrationSession:
         cap: cv2.VideoCapture,
         tracker: FaceMeshTracker,
         head_pose: HeadPoseEstimator,
+        blink_detector: BlinkDetector | None = None,
     ) -> list:
         screen_w, screen_h = pyautogui.size()
         x_positions = [screen_w * r for r in [0.1, 0.5, 0.9]]
@@ -38,27 +40,57 @@ class CalibrationSession:
         ui = self._ui
         samples = []
         fixation = GazeFixationDetector(self._config)
+        min_shift = self._config.get("calibration_gaze_shift_px", 3)
+
+        # iris position after the previous point's fixation (None for first point)
+        prev_iris_dx: float | None = None
+        prev_iris_dy: float | None = None
 
         try:
             for i, (pt_x, pt_y) in enumerate(grid_points):
                 ui.show_point(i, self._n_points, int(pt_x), int(pt_y))
                 fixation.reset()
+                # First point: no shift required. Subsequent: user must move gaze.
+                has_shifted = (prev_iris_dx is None)
 
-                # Phase 1 — wait for fixation
+                # Phase 1 — wait for gaze shift (if needed) then fixation
                 while not fixation.is_fixated():
                     ret, frame = cap.read()
                     if not ret:
                         raise RuntimeError("Camera read failed during calibration")
                     result = tracker.process(frame)
                     if result is None:
-                        ui.update_hint("Look at the dot...")
+                        ui.update_hint("Look at the dot...", 'gray')
+                        ui.update_stability(0)
                         ui.tick()
                         continue
                     mesh_points, mesh_points_3d = result
                     img_h, img_w = frame.shape[:2]
+
+                    # Eyes must be open — closed eyes produce fake stable iris coords
+                    if blink_detector and not blink_detector.is_eyes_open(mesh_points_3d):
+                        fixation.reset()
+                        ui.update_hint("Open your eyes!", 'red')
+                        ui.update_stability(0)
+                        ui.tick()
+                        continue
+
                     iris = get_iris_positions(mesh_points)
                     iris_dx = (iris['l_dx'] + iris['r_dx']) / 2.0
                     iris_dy = (iris['l_dy'] + iris['r_dy']) / 2.0
+
+                    # Require gaze to shift from previous fixation point
+                    if not has_shifted:
+                        shift = abs(iris_dx - prev_iris_dx) + abs(iris_dy - prev_iris_dy)
+                        if shift < min_shift:
+                            fixation.reset()
+                            ui.update_hint("Look at the NEW dot!", 'yellow')
+                            ui.update_stability(0)
+                            ui.tick()
+                            continue
+                        has_shifted = True
+                        fixation.reset()  # start fresh after confirmed shift
+
                     fixation.update(iris_dx, iris_dy)
                     progress = fixation.progress()
                     if progress > 0.5:
@@ -68,7 +100,11 @@ class CalibrationSession:
                     ui.update_stability(progress)
                     ui.tick()
 
-                # Phase 2 — collect frames after fixation
+                # Record iris position of this fixation for next point's shift check
+                prev_iris_dx = iris_dx
+                prev_iris_dy = iris_dy
+
+                # Phase 2 — collect frames (skip frames where eyes are closed)
                 ui.update_stability(0)
                 iris_dx_vals, iris_dy_vals, pitch_vals, yaw_vals = [], [], [], []
                 frames_collected = 0
@@ -80,9 +116,17 @@ class CalibrationSession:
                     if result is None:
                         ui.tick()
                         continue
-                    ui.update_countdown(frames_collected / self._collect_frames)
                     mesh_points, mesh_points_3d = result
                     img_h, img_w = frame.shape[:2]
+
+                    # Skip frames where eyes are closed
+                    if blink_detector and not blink_detector.is_eyes_open(mesh_points_3d):
+                        ui.update_hint("Keep eyes open!", 'red')
+                        ui.tick()
+                        continue
+
+                    ui.update_hint("", 'gray')
+                    ui.update_countdown(frames_collected / self._collect_frames)
                     iris = get_iris_positions(mesh_points)
                     iris_dx = (iris['l_dx'] + iris['r_dx']) / 2.0
                     iris_dy = (iris['l_dy'] + iris['r_dy']) / 2.0

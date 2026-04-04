@@ -9,6 +9,10 @@ class BlinkDetector:
         self._frame_counter = 0
         self._total_blinks = 0
 
+    def is_eyes_open(self, mesh_points_3d: np.ndarray) -> bool:
+        """Return True if both eyes are open (EAR above blink threshold)."""
+        return self._blinking_ratio(mesh_points_3d) > self._threshold
+
     def update(self, mesh_points_3d: np.ndarray) -> bool:
         blink_detected = False
         ear = self._blinking_ratio(mesh_points_3d)

@@ -96,7 +96,7 @@ def main():
 
     if not loaded:
         print("No calibration found. Running calibration...")
-        samples = calibration_session.run(cap, tracker, head_pose)
+        samples = calibration_session.run(cap, tracker, head_pose, blink_detector)
         gaze_mapper.fit(samples)
         gaze_mapper.save(calib_path, samples)
         print("Calibration complete.")
@@ -286,8 +286,11 @@ def main():
                 print("Recording started." if IS_RECORDING else "Recording paused.")
 
             if key == ord('r'):
+                head_pose.recalibrate()
+                head_reset_indicator_until = time.monotonic() + 2.0
+                print("Head pose reset. Current position saved as zero baseline.")
                 print("Starting recalibration...")
-                samples = calibration_session.run(cap, tracker, head_pose)
+                samples = calibration_session.run(cap, tracker, head_pose, blink_detector)
                 gaze_mapper.fit(samples)
                 gaze_mapper.save(calib_path, samples)
                 print("Recalibration complete.")

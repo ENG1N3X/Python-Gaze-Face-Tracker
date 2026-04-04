@@ -1,37 +1,44 @@
-import collections
-import numpy as np
-
-
 class GazeFixationDetector:
-    """Detects when the user is fixating on a point by measuring iris stability.
+    """Detects when the user fixates on a point by counting consecutive stable frames.
 
-    Fixation is detected when the standard deviation of iris_dx and iris_dy
-    over the last N frames is below a threshold.
+    Each call to update() checks frame-to-frame iris movement. If movement
+    exceeds movement_threshold, the stable-frame counter is fully reset.
+    Fixation is confirmed only after window_frames consecutive stable frames.
+
+    This is more reliable than std-based detection because:
+    - Any gaze shift immediately resets progress (no "averaging away" bad frames)
+    - Integer iris coordinates don't cause false positives via quantization
     """
 
     def __init__(self, config: dict) -> None:
-        self._std_threshold = config.get("fixation_std_threshold", 2.0)
-        self._window = config.get("fixation_window_frames", 12)
-        self._history_dx: collections.deque = collections.deque(maxlen=self._window)
-        self._history_dy: collections.deque = collections.deque(maxlen=self._window)
+        self._window = config.get("fixation_window_frames", 20)
+        # Max allowed frame-to-frame iris movement (pixels) before reset
+        self._movement_threshold = config.get("fixation_movement_threshold", 2.5)
+        self._stable_frames: int = 0
+        self._prev_dx: float | None = None
+        self._prev_dy: float | None = None
 
     def update(self, iris_dx: float, iris_dy: float) -> None:
-        self._history_dx.append(iris_dx)
-        self._history_dy.append(iris_dy)
+        if self._prev_dx is not None:
+            delta = abs(iris_dx - self._prev_dx) + abs(iris_dy - self._prev_dy)
+            if delta > self._movement_threshold:
+                self._stable_frames = 0  # gaze moved — full reset
+            else:
+                self._stable_frames += 1
+        else:
+            self._stable_frames = 0
+
+        self._prev_dx = iris_dx
+        self._prev_dy = iris_dy
 
     def is_fixated(self) -> bool:
-        if len(self._history_dx) < self._window:
-            return False
-        return (float(np.std(self._history_dx)) < self._std_threshold and
-                float(np.std(self._history_dy)) < self._std_threshold)
+        return self._stable_frames >= self._window
 
     def progress(self) -> float:
-        """Return 0.0–1.0: how close to fixation (1.0 = fixated)."""
-        if len(self._history_dx) < 2:
-            return 0.0
-        std = max(float(np.std(self._history_dx)), float(np.std(self._history_dy)))
-        return max(0.0, min(1.0, 1.0 - std / self._std_threshold))
+        """0.0–1.0: fraction of required stable frames accumulated."""
+        return min(1.0, self._stable_frames / self._window)
 
     def reset(self) -> None:
-        self._history_dx.clear()
-        self._history_dy.clear()
+        self._stable_frames = 0
+        self._prev_dx = None
+        self._prev_dy = None
