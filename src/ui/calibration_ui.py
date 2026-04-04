@@ -12,9 +12,12 @@ class CalibrationUI:
     def __init__(self) -> None:
         self._screen_w, self._screen_h = pyautogui.size()
         self._root = tk.Tk()
-        self._root.attributes('-fullscreen', True)
-        self._root.attributes('-topmost', True)
+        self._root.withdraw()  # hide before anything renders
         self._root.configure(bg='black')
+        # overrideredirect avoids macOS fullscreen-mode animations that prevent
+        # withdraw() from working. The window covers the full screen manually.
+        self._root.overrideredirect(True)
+        self._root.geometry(f'{self._screen_w}x{self._screen_h}+0+0')
         self._canvas = tk.Canvas(
             self._root,
             width=self._screen_w,
@@ -23,7 +26,6 @@ class CalibrationUI:
             highlightthickness=0,
         )
         self._canvas.pack(fill=tk.BOTH, expand=True)
-        self._root.update()
 
     def tick(self) -> None:
         """Pump the tkinter event loop once — call every frame."""
@@ -66,10 +68,10 @@ class CalibrationUI:
         self._root.update()
 
     def show(self) -> None:
-        """Make the window visible (for reuse on recalibration)."""
+        """Make the window visible."""
         self._canvas.delete('all')
-        self._root.deiconify()
         self._root.attributes('-topmost', True)
+        self._root.deiconify()
         self._root.update()
 
     def close(self) -> None:

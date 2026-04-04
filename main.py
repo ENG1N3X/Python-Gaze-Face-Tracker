@@ -75,6 +75,7 @@ def main():
     cursor_controller = CursorController(config)
     clicker = DoubleBlinkClicker(config)
     click_indicator_until = 0.0
+    head_reset_indicator_until = 0.0
 
     cap = cv.VideoCapture(int(args.camSource))
     iris_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -227,6 +228,13 @@ def main():
                         cv.putText(frame, f"Roll: {int(roll)}", (30, 170), cv.FONT_HERSHEY_DUPLEX, 0.8, (0, 255, 0), 2, cv.LINE_AA)
                     if time.monotonic() < click_indicator_until:
                         cv.putText(frame, "CLICK", (30, 210), cv.FONT_HERSHEY_DUPLEX, 0.8, (0, 220, 255), 2, cv.LINE_AA)
+                    if time.monotonic() < head_reset_indicator_until:
+                        msg = "Head pose reset  look straight ahead"
+                        (w, h), _ = cv.getTextSize(msg, cv.FONT_HERSHEY_DUPLEX, 0.7, 2)
+                        x = (img_w - w) // 2
+                        y = img_h // 2
+                        cv.rectangle(frame, (x - 8, y - h - 8), (x + w + 8, y + 8), (0, 0, 0), -1)
+                        cv.putText(frame, msg, (x, y), cv.FONT_HERSHEY_DUPLEX, 0.7, (0, 255, 128), 2, cv.LINE_AA)
 
                     # Controls hint — bottom right corner
                     cursor_state = "ON" if cursor_controller.is_enabled() else "OFF"
@@ -253,8 +261,8 @@ def main():
 
             if key == ord('c'):
                 head_pose.recalibrate()
-                if PRINT_DATA:
-                    print("Head pose recalibrated.")
+                head_reset_indicator_until = time.monotonic() + 2.0
+                print("Head pose reset. Current position saved as zero baseline.")
 
             if key == ord('s'):
                 IS_RECORDING = not IS_RECORDING
