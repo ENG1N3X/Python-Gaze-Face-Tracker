@@ -33,7 +33,15 @@ import numpy as np
 MINIMAL_CONFIG = {
     "calibration_dwell_sec": 1.0,
     "calibration_points": 9,
-    "calibration_collect_frames": 3,   # small value so tests run quickly
+    "calibration_collect_frames": 3,       # small value so tests run quickly
+    # Fixation detector — set to 1 frame so mocked data passes immediately
+    "fixation_window_frames": 1,
+    "fixation_movement_threshold": 100.0,  # never reset in tests
+    # Disable gaze-shift requirement so fixed mock iris values don't loop forever
+    "calibration_gaze_shift_px": 0,
+    # Blink detector keys (needed if blink_detector is passed)
+    "blink_threshold": 0.51,
+    "blink_consec_frames": 2,
 }
 
 # Synthetic samples list (caller is responsible for these — CalibrationSession
@@ -222,13 +230,12 @@ def _run_with_mocks(config=None):
       - get_iris_positions() — returns fixed iris dict
       - pyautogui.size() — returns (1920, 1080)
       - CalibrationUI — replaced with a MagicMock (no tkinter)
+
+    Note: CalibrationSession is created INSIDE the patch context so that
+    CalibrationUI() called in __init__ is also intercepted by the mock.
     """
     if config is None:
         config = MINIMAL_CONFIG
-
-    from src.calibration.calibration import CalibrationSession
-
-    session = CalibrationSession(config)
 
     mesh_points, mesh_points_3d = _build_mock_mesh()
     mock_tracker = MagicMock()
@@ -243,6 +250,8 @@ def _run_with_mocks(config=None):
 
     iris_return = _mock_iris_return()
 
+    from src.calibration.calibration import CalibrationSession
+
     with patch('src.calibration.calibration.CalibrationUI') as mock_ui_cls, \
          patch('src.calibration.calibration.get_iris_positions',
                return_value=iris_return), \
@@ -252,6 +261,8 @@ def _run_with_mocks(config=None):
         mock_ui_instance = MagicMock()
         mock_ui_cls.return_value = mock_ui_instance
 
+        # Session created inside patch so __init__'s CalibrationUI() is mocked
+        session = CalibrationSession(config)
         samples = session.run(mock_cap, mock_tracker, mock_head_pose)
 
     return samples, mock_ui_instance

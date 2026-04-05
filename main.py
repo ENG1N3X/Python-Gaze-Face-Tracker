@@ -35,6 +35,7 @@ from src.tracking.iris_tracker import (
 )
 from src.tracking.blink_detector import BlinkDetector
 from src.tracking.head_pose import HeadPoseEstimator
+from src.tracking.iris_filter import IrisFilter
 from src.control.cursor import CursorController
 from src.control.clicker import DoubleBlinkClicker
 from src.control.mouse_monitor import MouseMonitor
@@ -74,6 +75,7 @@ def main():
     blink_detector = BlinkDetector(config)
     head_pose = HeadPoseEstimator(config)
     cursor_controller = CursorController(config)
+    iris_filter = IrisFilter(config)
     clicker = DoubleBlinkClicker(config)
     mouse_monitor = MouseMonitor(config)
     prev_manual_active = False
@@ -175,10 +177,12 @@ def main():
                 manual_active = mouse_monitor.check()
                 if prev_manual_active and not manual_active:
                     cursor_controller.reset_buffer()
+                    iris_filter.reset()
                 prev_manual_active = manual_active
                 if gaze_mapper.is_calibrated() and not manual_active:
                     iris_dx = (iris["l_dx"] + iris["r_dx"]) / 2.0
                     iris_dy = (iris["l_dy"] + iris["r_dy"]) / 2.0
+                    iris_dx, iris_dy = iris_filter.update(iris_dx, iris_dy)
                     try:
                         pred_x, pred_y = gaze_mapper.predict(iris_dx, iris_dy, pitch, yaw)
                         pos = cursor_controller.move(pred_x, pred_y)
@@ -204,8 +208,8 @@ def main():
                         cv.circle(frame, tuple(point), 1, (0, 255, 0), -1)
 
                 # Draw irises and eye corners
-                cv.circle(frame, center_left, int(l_radius), (255, 0, 255), 2, cv.LINE_AA)
-                cv.circle(frame, center_right, int(r_radius), (255, 0, 255), 2, cv.LINE_AA)
+                cv.circle(frame, (int(center_left[0]), int(center_left[1])), int(l_radius), (255, 0, 255), 2, cv.LINE_AA)
+                cv.circle(frame, (int(center_right[0]), int(center_right[1])), int(r_radius), (255, 0, 255), 2, cv.LINE_AA)
                 cv.circle(frame, mesh_points[LEFT_EYE_INNER_CORNER[0]], 3, (255, 255, 255), -1, cv.LINE_AA)
                 cv.circle(frame, mesh_points[LEFT_EYE_OUTER_CORNER[0]], 3, (0, 255, 255), -1, cv.LINE_AA)
                 cv.circle(frame, mesh_points[RIGHT_EYE_INNER_CORNER[0]], 3, (255, 255, 255), -1, cv.LINE_AA)

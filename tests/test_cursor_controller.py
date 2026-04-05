@@ -241,18 +241,23 @@ class TestCursorToggleResumesMovement(unittest.TestCase):
     def test_move_call_count_reflects_enabled_state(self):
         """Two moves while enabled, two while disabled, two while re-enabled → 4 calls total."""
         with patch("src.control.cursor.pyautogui") as mock_pg:
-            ctrl = _make_controller(mock_pg)
+            # deadzone=0 so every distinct position triggers moveTo
+            from src.control.cursor import CursorController
+            mock_pg.size.return_value = (1920, 1080)
+            ctrl = CursorController({"smoothing_alpha": 1.0, "cursor_alpha_fast": 1.0,
+                                     "cursor_fast_velocity_threshold_px": 0,
+                                     "cursor_deadzone_px": 0, "snap_zones": []})
 
             ctrl.move(100.0, 100.0)
-            ctrl.move(100.0, 100.0)
+            ctrl.move(200.0, 200.0)
 
             ctrl.set_enabled(False)
-            ctrl.move(100.0, 100.0)
-            ctrl.move(100.0, 100.0)
+            ctrl.move(300.0, 300.0)
+            ctrl.move(400.0, 400.0)
 
             ctrl.set_enabled(True)
-            ctrl.move(100.0, 100.0)
-            ctrl.move(100.0, 100.0)
+            ctrl.move(500.0, 500.0)
+            ctrl.move(600.0, 600.0)
 
         self.assertEqual(mock_pg.moveTo.call_count, 4)
 

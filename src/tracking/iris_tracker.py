@@ -20,8 +20,8 @@ def _vector_position(point1, point2):
 def get_iris_positions(mesh_points: np.ndarray) -> dict:
     (l_cx, l_cy), l_radius = cv2.minEnclosingCircle(mesh_points[LEFT_IRIS])
     (r_cx, r_cy), r_radius = cv2.minEnclosingCircle(mesh_points[RIGHT_IRIS])
-    center_left = np.array([l_cx, l_cy], dtype=np.int32)
-    center_right = np.array([r_cx, r_cy], dtype=np.int32)
+    center_left = np.array([l_cx, l_cy], dtype=np.float32)
+    center_right = np.array([r_cx, r_cy], dtype=np.float32)
     l_dx, l_dy = _vector_position(mesh_points[LEFT_EYE_OUTER_CORNER], center_left)
     r_dx, r_dy = _vector_position(mesh_points[RIGHT_EYE_OUTER_CORNER], center_right)
     return {

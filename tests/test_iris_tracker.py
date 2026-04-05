@@ -106,28 +106,28 @@ class TestGetIrisPositionsAllKeys(unittest.TestCase):
                 self.assertIn(key, result)
 
 
-class TestGetIrisPositionsDxDyAreInt(unittest.TestCase):
-    """l_dx and l_dy must be integers (not floats) — they feed UDP int32 packets."""
+class TestGetIrisPositionsDxDyAreNumeric(unittest.TestCase):
+    """l_dx and l_dy must be numeric (int or float) — iris coords are now float32."""
 
-    def test_l_dx_is_int(self):
+    def test_l_dx_is_numeric(self):
         from src.tracking.iris_tracker import get_iris_positions
         result = get_iris_positions(_make_mesh_points())
-        self.assertIsInstance(result["l_dx"], (int, np.integer))
+        self.assertIsInstance(result["l_dx"], (int, float, np.number))
 
-    def test_l_dy_is_int(self):
+    def test_l_dy_is_numeric(self):
         from src.tracking.iris_tracker import get_iris_positions
         result = get_iris_positions(_make_mesh_points())
-        self.assertIsInstance(result["l_dy"], (int, np.integer))
+        self.assertIsInstance(result["l_dy"], (int, float, np.number))
 
-    def test_r_dx_is_int(self):
+    def test_r_dx_is_numeric(self):
         from src.tracking.iris_tracker import get_iris_positions
         result = get_iris_positions(_make_mesh_points())
-        self.assertIsInstance(result["r_dx"], (int, np.integer))
+        self.assertIsInstance(result["r_dx"], (int, float, np.number))
 
-    def test_r_dy_is_int(self):
+    def test_r_dy_is_numeric(self):
         from src.tracking.iris_tracker import get_iris_positions
         result = get_iris_positions(_make_mesh_points())
-        self.assertIsInstance(result["r_dy"], (int, np.integer))
+        self.assertIsInstance(result["r_dy"], (int, float, np.number))
 
 
 class TestGetIrisPositionsLCenterShape(unittest.TestCase):
@@ -173,8 +173,8 @@ class TestGetIrisPositionsDxDySemantics(unittest.TestCase):
 
         (l_cx, _), _ = cv2.minEnclosingCircle(mesh[LEFT_IRIS])
         outer_x = mesh[LEFT_EYE_OUTER_CORNER][0][0]
-        expected_dx = int(l_cx) - outer_x
-        self.assertEqual(result["l_dx"], expected_dx)
+        expected_dx = float(l_cx) - float(outer_x)
+        self.assertAlmostEqual(float(result["l_dx"]), expected_dx, places=3)
 
 
 if __name__ == "__main__":

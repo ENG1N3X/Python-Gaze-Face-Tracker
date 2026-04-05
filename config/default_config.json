@@ -28,6 +28,11 @@
   "manual_mouse_threshold_px": 15,
   "smoothing_alpha": 0.08,
   "cursor_deadzone_px": 8,
+  "cursor_alpha_fast": 0.35,
+  "cursor_fast_velocity_threshold_px": 80,
+  "iris_filter_window": 5,
+  "iris_spike_threshold_px": 8.0,
+  "snap_zones": [],
   "fixation_window_frames": 20,
   "fixation_movement_threshold": 2.5,
   "calibration_gaze_shift_px": 3
